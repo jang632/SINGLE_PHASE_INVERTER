@@ -18,12 +18,10 @@ architecture Behavioral of srf_pll is
 
     type machine is (LOCKING, STABLE);
     signal state : machine;
-
-
-    signal clk_10M : std_logic := '0';
+    
     signal reset   : std_logic := '0';
     signal enable  : std_logic;
-
+    
 
     signal v       : signed(31 downto 0);
     signal qv      : signed(31 downto 0);
@@ -38,7 +36,6 @@ architecture Behavioral of srf_pll is
     signal omega_int       : signed(31 downto 0);
     
     constant Ts : signed(31 downto 0) := x"0000a7c6"; -- fixed point 31
-
 
     signal b0 : signed(31 downto 0) := x"210E5DC9"; -- fixed point 20
     signal b1 : signed(31 downto 0) := x"DF152A0B"; -- fixed point 20
@@ -64,13 +61,6 @@ architecture Behavioral of srf_pll is
             rst        : in  std_logic;
             ce         : in  std_logic;
             enable_out : out std_logic
-        );
-    end component;
-    
-    component clk_wiz_0
-        port (
-            clk_out1 : out std_logic;
-            clk_in1  : in  std_logic
         );
     end component;
     
@@ -137,19 +127,13 @@ begin
 
     u_enable_generator : enable_generator
         generic map (
-            COUNT => 400
+            COUNT => 200
         )
         port map (
-            clk        => clk_10M,
+            clk        => clk,
             rst        => rst,
             ce         => ce,
             enable_out => enable 
-        );
-
-    u_pll : clk_wiz_0
-        port map (
-            clk_out1 => clk_10M,
-            clk_in1  => clk
         );
 
     u_sogi : sogi
@@ -157,7 +141,7 @@ begin
             WIDTH => 16
         )
         port map (
-            clk => clk_10M,
+            clk => clk,
             rst => rst,
             ce  => enable,
             v_n => v_n,
@@ -167,7 +151,7 @@ begin
 
     parke_inst : parke_transform
         port map (
-            clk     => clk_10M,
+            clk     => clk,
             rst     => rst,
             ce      => enable,
             v_alpha => v,
@@ -179,7 +163,7 @@ begin
 
     pi_ctrl_inst : pi_controller
         port map (
-            clk      => clk_10M,
+            clk      => clk,
             rst      => rst,
             ce       => enable,
             b0       => b0,
@@ -199,7 +183,7 @@ begin
     
     u_integrator : integrator
         port map (
-            clk      => clk_10M,
+            clk      => clk,
             rst      => rst,
             ce       => enable,
             data_in  => omega_int,
@@ -208,8 +192,8 @@ begin
     
     process(clk)
     begin
-        if rising_edge(clk_10M) then 
-            if rst = '1' then 
+        if rising_edge(clk) then 
+            if(rst = '1') then 
                 state          <= LOCKING;
                 stable_samples <= (others => '0');
             else
@@ -248,5 +232,6 @@ begin
     
     phase <= theta_int;
     omega <= omega_int;
+    
 
 end Behavioral;

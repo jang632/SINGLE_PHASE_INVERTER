@@ -59,7 +59,6 @@ begin
                 r_data_out <= PI;
             else
                 if(ce = '1') then
-
                     v_mult     := K*(data_in + d_data_in);
                     r_data_out <= r_data_out + v_mult;
                     

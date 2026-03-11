@@ -58,43 +58,45 @@ begin
 
     process(clk)
     begin 
-        if (reset = '1') then
-            pipeline <= (others => ((others => '0'), (others => '0'), (others => '0'), (others => '0')));
-        elsif rising_edge(clk) then
-            if (ce = '1') then
-                if(signed(theta) < PI_OVER_2) then
-                    pipeline(0).pip_theta    <= theta;
-                    pipeline(0).pip_quadrant <= "00";
-                elsif(signed(theta) <= PI) then
-                    pipeline(0).pip_theta    <= PI - theta;
-                    pipeline(0).pip_quadrant <= "01";
-                elsif(signed(theta) <= THREE_PI_OVER_2) then
-                    pipeline(0).pip_theta    <= theta - PI;
-                    pipeline(0).pip_quadrant <= "10";
-                elsif(signed(theta) <= TWO_PI) then
-                    pipeline(0).pip_theta    <= TWO_PI - theta;
-                    pipeline(0).pip_quadrant <= "11";
-                else
-                    pipeline(0).pip_theta    <= (others => '0');
-                    pipeline(0).pip_quadrant <= "00";
-                end if;
-
-                pipeline(0).pip_cos <= x"09B74A7D";
-                pipeline(0).pip_sin <= (others => '0');
-
-                for i in 0 to iterations-2 loop
-                    if(pipeline(i).pip_theta < 0) then
-                        pipeline(i+1).pip_cos      <= pipeline(i).pip_cos + shift_right(pipeline(i).pip_sin, i);
-                        pipeline(i+1).pip_sin      <= pipeline(i).pip_sin - shift_right(pipeline(i).pip_cos, i);
-                        pipeline(i+1).pip_quadrant <= pipeline(i).pip_quadrant;
-                        pipeline(i+1).pip_theta    <= pipeline(i).pip_theta + angles(i);
+           if rising_edge(clk) then
+            if (reset = '1') then
+                pipeline <= (others => ((others => '0'), (others => '0'), (others => '0'), (others => '0')));
+            else
+                if (ce = '1') then
+                    if(signed(theta) < PI_OVER_2) then
+                        pipeline(0).pip_theta    <= theta;
+                        pipeline(0).pip_quadrant <= "00";
+                    elsif(signed(theta) <= PI) then
+                        pipeline(0).pip_theta    <= PI - theta;
+                        pipeline(0).pip_quadrant <= "01";
+                    elsif(signed(theta) <= THREE_PI_OVER_2) then
+                        pipeline(0).pip_theta    <= theta - PI;
+                        pipeline(0).pip_quadrant <= "10";
+                    elsif(signed(theta) <= TWO_PI) then
+                        pipeline(0).pip_theta    <= TWO_PI - theta;
+                        pipeline(0).pip_quadrant <= "11";
                     else
-                        pipeline(i+1).pip_sin      <= pipeline(i).pip_sin + shift_right(pipeline(i).pip_cos, i);
-                        pipeline(i+1).pip_cos      <= pipeline(i).pip_cos - shift_right(pipeline(i).pip_sin, i);
-                        pipeline(i+1).pip_quadrant <= pipeline(i).pip_quadrant;
-                        pipeline(i+1).pip_theta    <= pipeline(i).pip_theta - angles(i);
+                        pipeline(0).pip_theta    <= (others => '0');
+                        pipeline(0).pip_quadrant <= "00";
                     end if;
-                end loop;
+    
+                    pipeline(0).pip_cos <= x"09B74A7D";
+                    pipeline(0).pip_sin <= (others => '0');
+    
+                    for i in 0 to iterations-2 loop
+                        if(pipeline(i).pip_theta < 0) then
+                            pipeline(i+1).pip_cos      <= pipeline(i).pip_cos + shift_right(pipeline(i).pip_sin, i);
+                            pipeline(i+1).pip_sin      <= pipeline(i).pip_sin - shift_right(pipeline(i).pip_cos, i);
+                            pipeline(i+1).pip_quadrant <= pipeline(i).pip_quadrant;
+                            pipeline(i+1).pip_theta    <= pipeline(i).pip_theta + angles(i);
+                        else
+                            pipeline(i+1).pip_sin      <= pipeline(i).pip_sin + shift_right(pipeline(i).pip_cos, i);
+                            pipeline(i+1).pip_cos      <= pipeline(i).pip_cos - shift_right(pipeline(i).pip_sin, i);
+                            pipeline(i+1).pip_quadrant <= pipeline(i).pip_quadrant;
+                            pipeline(i+1).pip_theta    <= pipeline(i).pip_theta - angles(i);
+                        end if;
+                    end loop;
+                end if;
             end if;
         end if;
     end process;

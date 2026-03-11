@@ -28,22 +28,24 @@ begin
 
     process(clk)
     begin
-        if(reset = '1') then 
-            alpha_delay_line <= (others => (others => '0'));
-            beta_delay_line  <= (others => (others => '0'));
-            v_alpha_del      <= (others => '0');
-            v_beta_del       <= (others => '0');
-        elsif (rising_edge(clk)) then
-            if(ce = '1') then
-                for i in LENGTH-1 downto 1 loop
-                    alpha_delay_line(i) <= alpha_delay_line(i - 1);
-                    beta_delay_line(i)  <= beta_delay_line(i - 1);
-                end loop;
-                alpha_delay_line(0) <= v_alpha;
-                beta_delay_line(0)  <= v_beta;
-                v_alpha_del <= alpha_delay_line(LENGTH-1);
-                v_beta_del  <= beta_delay_line(LENGTH-1);
-            end if;
+           if (rising_edge(clk)) then
+                if(reset = '1') then 
+                    alpha_delay_line <= (others => (others => '0'));
+                    beta_delay_line  <= (others => (others => '0'));
+                    v_alpha_del      <= (others => '0');
+                    v_beta_del       <= (others => '0');
+                else
+                    if(ce = '1') then
+                        for i in LENGTH-1 downto 1 loop
+                            alpha_delay_line(i) <= alpha_delay_line(i - 1);
+                            beta_delay_line(i)  <= beta_delay_line(i - 1);
+                        end loop;
+                        alpha_delay_line(0) <= v_alpha;
+                        beta_delay_line(0)  <= v_beta;
+                        v_alpha_del <= alpha_delay_line(LENGTH-1);
+                        v_beta_del  <= beta_delay_line(LENGTH-1);
+                     end if;
+                end if;     
         end if;
     end process;
 

@@ -31,8 +31,26 @@ architecture behavioral of pi_controller is
 
     signal d_data_in : signed(31 downto 0);
     signal u         : signed(63 downto 0);
+--    signal t0        : signed(63 downto 0);
+--    signal t1        : signed(63 downto 0);
+
+
 
     constant W0         : signed(63 downto 0) := x"0013a28c59d544a7";
+    constant SATURATION_u : signed(63 downto 0) := x"003e800000000000";
+    
+    function truncate(value_in : signed; limit : signed) return signed is
+        variable value_out : signed(value_in'range);
+    begin
+        if value_in > limit then
+            value_out := limit;
+        elsif value_in < -limit then
+            value_out := -limit;
+        else
+            value_out := value_in;
+        end if;  
+        return value_out;
+    end function;
 
 begin
 
@@ -50,9 +68,9 @@ begin
     end process;
 
     process(clk)
-        variable t0 : signed(63 downto 0);
-        variable t1 : signed(63 downto 0);
-        variable t3 : signed(63 downto 0);
+        variable t0     : signed(63 downto 0);
+        variable t1     : signed(63 downto 0);
+        variable u_temp : signed(63 downto 0);
     begin
         if (rising_edge(clk)) then
             if (rst = '1') then
@@ -61,7 +79,16 @@ begin
                 if (ce = '1') then
                     t0 := b0 * data_in;
                     t1 := b1 * d_data_in;
-                    u  <= u + t0 + t1;
+                    u_temp := u + t0 + t1;
+                                     
+                    if(u_temp > SATURATION_u) then
+                        u <= SATURATION_u;
+                    elsif(u_temp < -SATURATION_u) then
+                        u <= -SATURATION_u;
+                    else
+                        u  <= u_temp;
+                    end if;
+                    
                 end if;
             end if;
         end if;
