@@ -1,9 +1,7 @@
-
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 use IEEE.MATH_REAL.ALL;
-
 
 library work;
 use work.pkg.all;
@@ -15,9 +13,9 @@ entity MAF_filter is
         FIXED_POINT   : integer := 6
     );
     port(
-        clk      : in std_logic;
-        rst      : in std_logic;
-        ce       : in std_logic;
+        clk      : in  std_logic;
+        rst      : in  std_logic;
+        ce       : in  std_logic;
         data_in  : in  signed(DATA_WIDTH-1 downto 0);
         data_out : out signed(DATA_WIDTH-1 downto 0)
     );
@@ -25,49 +23,45 @@ end MAF_filter;
 
 architecture Behavioral of MAF_filter is
 
-    signal   S          : signed(DATA_WIDTH+8 downto 0);
-    signal   x_mem      : t_array(0 to WINDOW_LENGTH-1)(DATA_WIDTH-1 downto 0) := (others => (others => '0'));
-    constant ONE_OVER_N : signed(DATA_WIDTH-1 downto 0) := to_signed(integer((2.0**(16)/real(WINDOW_LENGTH))), DATA_WIDTH);
-
+    signal S     : signed(DATA_WIDTH+8 downto 0);
+    signal x_mem : t_array(0 to WINDOW_LENGTH-1)(DATA_WIDTH-1 downto 0) := (others => (others => '0'));
     
-    component shift_buffer 
-    generic(
-        DATA_WIDTH : integer;
-        FIXED_POINT : integer;
-        INIT        : real;
-        DEPTH      : integer
-    );
-    port(
-        clk      : in  std_logic;
-        rst      : in  std_logic;
-        ce       : in  std_logic;
-        data_in  : in  signed(DATA_WIDTH-1 downto 0);
-        data_out : out t_array(0 to DEPTH-1)(DATA_WIDTH-1 downto 0)
-    );
+    constant ONE_OVER_N : signed(DATA_WIDTH-1 downto 0) := to_signed(integer((2.0**16 / real(WINDOW_LENGTH))), DATA_WIDTH);
+
+    component shift_buffer
+        generic(
+            LENGTH : integer := 3;
+            WIDTH  : integer := 8
+        );
+        port(
+            clk      : in  std_logic;
+            rst      : in  std_logic;
+            ce       : in  std_logic;
+            data_in  : in  signed(WIDTH-1 downto 0);
+            data_out : out t_array(0 to LENGTH-1)(WIDTH-1 downto 0)
+        );   
     end component;
 
 begin
     
     u_shift_buffer : shift_buffer
-    generic map(
-        DATA_WIDTH  => DATA_WIDTH,
-        INIT        => 0.0,
-        FIXED_POINT => 6,
-        DEPTH       => WINDOW_LENGTH
-    )
-    port map(
-        clk      => clk,
-        rst      => rst,
-        ce       => ce,
-        data_in  => data_in,
-        data_out => x_mem
-    );
+        generic map(
+            LENGTH => WINDOW_LENGTH,
+            WIDTH  => DATA_WIDTH
+        )
+        port map(
+            clk      => clk,
+            rst      => rst,
+            ce       => ce,
+            data_in  => data_in,
+            data_out => x_mem
+        );
 
     process(clk)
-    variable v0 : signed(2*DATA_WIDTH+8 downto 0);
-    variable v1 : signed(2*DATA_WIDTH+8 downto 0);
+        variable v0 : signed(2*DATA_WIDTH+8 downto 0);
+        variable v1 : signed(2*DATA_WIDTH+8 downto 0);
     begin
-        if(rising_edge(clk)) then 
+        if rising_edge(clk) then 
             if(rst = '1') then 
                 S        <= (others => '0');
                 v0       := (others => '0');
@@ -75,10 +69,10 @@ begin
                 data_out <= (others => '0');
             else
                 if(ce = '1') then
-                    S        <= S + resize(data_in,DATA_WIDTH+9) - resize(x_mem(WINDOW_LENGTH-1),DATA_WIDTH+9); -- 33 w, fp 6
-                    v0       := S*ONE_OVER_N; -- 65 w, fp 6+15=21
-                    v1       := shift_left(v0, FIXED_POINT+3); -- fp 31
-                    data_out <= v1(2*DATA_WIDTH+8 downto DATA_WIDTH+9); -- fp 50 - 34 = 16
+                    S        <= S + resize(data_in, DATA_WIDTH+9) - resize(x_mem(WINDOW_LENGTH-1), DATA_WIDTH+9);
+                    v0       := S * ONE_OVER_N;
+                    v1       := shift_left(v0, FIXED_POINT+3);
+                    data_out <= v1(2*DATA_WIDTH+8 downto DATA_WIDTH+9);
                 end if;
             end if;
         end if;

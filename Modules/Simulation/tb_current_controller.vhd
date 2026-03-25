@@ -38,9 +38,14 @@ architecture Behavioral of tb_current_controller is
     constant CLK_PERIOD : time := 20 us;
     constant CE_PERIOD  : time := 20 us;
     
-    constant Ts : real := 1.0/50000.0;
-    constant L  : real := 4.2/1000;
-    constant R  : real := 0.5;
+    constant Ts : real := 1.0 / 50000.0;
+    
+    constant L1 : real := 2.5 / 1000.0; 
+    constant R1 : real := 0.1;          
+    constant L2 : real := 1.0 / 1000.0; 
+    constant R2 : real := 0.1;          
+    constant Cf : real := 4.7 / 1000000.0; 
+    constant Rd : real := 5.0;          
     
 begin
 
@@ -65,23 +70,45 @@ begin
         wait for CLK_PERIOD / 2;
     end process;
 
-
-   stim_proc: process
-        variable n          : integer := 0;
-        variable t          : real;
-        variable v_inductor : real;
-        variable v_inv_safe : signed(47 downto 0);
-        variable I_l_k      : real := 0.0; 
+    stim_proc: process
+  
+        function to_real_scaled(val : signed(47 downto 0); scale : real) return real is
+            variable tmp : real := 0.0;
+        begin
+            for i in 0 to 46 loop
+                if val(i) = '1' then
+                    tmp := tmp + (2.0**i);
+                end if;
+            end loop;
+            if val(47) = '1' then
+                tmp := tmp - (2.0**47); 
+            end if;
+            return tmp / scale;
+        end function;
+  
+        variable n : integer := 0;
+        variable t : real;
+        
+        variable I_L1_k     : real := 0.0; 
+        variable I_L2_k     : real := 0.0;
+        variable V_cf_k     : real := 0.0;
+        variable V_C_branch : real := 0.0;
+        
+        variable u_inv_real : real := 0.0;
+        variable v_grid_real: real := 0.0;
+        
         variable P_out      : real := 0.0;
         variable I_cap      : real := 0.0;
         variable V_dc_meas  : real := 380.0; 
         variable P_in       : real := 500.0;
-        variable C_dc       : real := 3.0/1000.0;
+        variable C_dc       : real := 3.0 / 1000.0;
         
-        variable theta_var : real := 0.0;
-        variable TWO_PI    : real := 2.0 * math_pi;
-        variable THETA_STEP: real := 2.0 * math_pi * 50.0 * Ts;
-    begin    
+        variable theta_var      : real := 0.0;
+        variable theta_comp_var : real := 0.0; 
+        variable TWO_PI         : real := 2.0 * math_pi;
+        variable THETA_STEP     : real := 2.0 * math_pi * 50.0 * Ts;
+        
+    begin   
         rst <= '1';
         ce  <= '0';
         wait for 40 us;
@@ -90,40 +117,54 @@ begin
         rst <= '0';
         ce  <= '1';
         
-        v_ref <= shift_left(to_signed(400,32),16);
+        v_ref <= shift_left(to_signed(400, 32), 16);
         
         while n < 240000 loop
         
             wait until rising_edge(clk) and ce = '1';
             
-            if(n<40000) then
+            if n < 40000 then
                 P_in := 0.0;
-            elsif(n<80000) then
+            elsif n < 80000 then
                 P_in := 1500.0;
-            elsif(n<120000) then
+            elsif n < 120000 then
                 P_in := 2500.0;
             else
                 P_in := 500.0;
             end if;
 
             theta_var := theta_var + THETA_STEP;
-            
             if theta_var >= TWO_PI then
                 theta_var := theta_var - TWO_PI;
             end if;
-                     
-            theta <= to_signed(integer(theta_var * (2.0**28)), 32);
-            v_grid <= to_signed(integer(325.0*sin(theta_var)*2.0**6),16);
-            v_ref  <= shift_left(to_signed(400,32),16);
-            v_dc   <= to_signed(integer(V_dc_meas*2.0**6),16);
-            i_meas <= to_signed(integer(I_l_k*2.0**10),16);
             
-            v_inv_safe := resize(shift_right(v_out, 21), 48);
-            v_inductor := real(to_integer(v_inv_safe))/2.0**10 - real(to_integer(v_grid))/2.0**6;        
-            I_l_k      := (I_l_k + (Ts/L)*v_inductor)/(1.0 + (R*Ts)/L);      
-            P_out      := (real(to_integer(v_grid))/2.0**6)*I_l_k;
-            I_cap      := (P_in-P_out)/V_dc_meas;
-            V_dc_meas  := V_dc_meas + (I_cap/C_dc)*Ts;
+                      
+            theta       <= to_signed(integer(theta_var * (2.0**28)), 32);
+            v_grid_real := 325.0 * sin(theta_var);
+            v_grid      <= to_signed(integer(v_grid_real * 2.0**6), 16);
+            
+            v_ref <= shift_left(to_signed(400, 32), 16);
+            v_dc  <= to_signed(integer(V_dc_meas * 2.0**6), 16);
+            
+            i_meas <= to_signed(integer(I_L2_k * 2.0**10), 16);
+            
+            u_inv_real := to_real_scaled(v_out, 2.0**31);
+            
+            if u_inv_real > V_dc_meas then
+                u_inv_real := V_dc_meas;
+            elsif u_inv_real < -V_dc_meas then
+                u_inv_real := -V_dc_meas;
+            end if;
+
+            V_C_branch := V_cf_k + Rd * (I_L1_k - I_L2_k);
+            
+            I_L1_k := I_L1_k + Ts * (u_inv_real - I_L1_k * R1 - V_C_branch) / L1;
+            I_L2_k := I_L2_k + Ts * (V_C_branch - I_L2_k * R2 - v_grid_real) / L2;
+            V_cf_k := V_cf_k + Ts * (I_L1_k - I_L2_k) / Cf;
+            
+            P_out     := v_grid_real * I_L2_k;
+            I_cap     := (P_in - P_out) / V_dc_meas;
+            V_dc_meas := V_dc_meas + (I_cap / C_dc) * Ts;
             
             n := n + 1;
             
@@ -132,6 +173,5 @@ begin
         finish;
         wait;
     end process;
-    
     
 end Behavioral;
