@@ -57,8 +57,7 @@ architecture Behavioral of current_controller is
             i_ref  : in  signed(15 downto 0); -- fixed point 10
             i_meas : in  signed(15 downto 0); -- fixed point 10
             v_grid : in  signed(15 downto 0); -- fixed point 6
-            v_dc   : in  signed(31 downto 0); -- CURRENTLY NOT USED
-            v_ref  : out signed(47 downto 0)  -- fixed point 31
+            v_out  : out signed(47 downto 0)  -- fixed point 29
         );
     end component;
 
@@ -87,7 +86,6 @@ architecture Behavioral of current_controller is
     constant b0 : signed(31 downto 0) := x"02668B1A";
     constant b1 : signed(31 downto 0) := x"FD99BE4D";
 
-    signal v_dc_open    : signed(31 downto 0);
     signal error_v_dc   : signed(31 downto 0); -- fixed point 16
     signal i_ref        : signed(31 downto 0); -- fixed point 10
     signal i_ref_sliced : signed(15 downto 0); -- fixed point 10
@@ -96,14 +94,12 @@ architecture Behavioral of current_controller is
 
     signal maf_v_dc     : signed(15 downto 0); -- fixed point 6
 
-    signal h_v          : signed(47 downto 0); -- fixed point 6
-
 begin
 
     u_maf_filter_inst : MAF_filter
         generic map (
             DATA_WIDTH    => 16,
-            WINDOW_LENGTH => 500,
+            WINDOW_LENGTH => 497,
             FIXED_POINT   => 6
         )
         port map (
@@ -155,8 +151,7 @@ begin
             i_ref  => i_ref_sliced, 
             i_meas => i_meas, 
             v_grid => v_grid,
-            v_dc   => v_dc_open, 
-            v_ref  => v_out 
+            v_out  => v_out 
         );
     
     process(clk)
@@ -166,14 +161,12 @@ begin
             if(rst = '1') then 
                 error_v_dc   <= (others => '0');
                 i_ref_sliced <= (others => '0');
-                h_v          <= (others => '0');
                 v            := (others => '0');
             else
                 if(ce = '1') then
                     error_v_dc   <= shift_left(resize(maf_v_dc, 32), 10) - v_ref; -- fixed point 16        
                     v            := shift_left(i_ref * sin_val, 18);              -- fixed point 42
                     i_ref_sliced <= v(47 downto 32);                              -- fixed point 10
-                    h_v          <= v;
                 end if;
             end if;
         end if;

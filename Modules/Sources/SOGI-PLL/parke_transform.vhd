@@ -28,7 +28,9 @@ architecture behavioral of parke_transform is
 
     component cordic_sin_cos
         generic(
-            iterations : integer
+            iterations : integer;
+            WIDTH      : integer;
+            OUT_FP     : integer
         );
         port(
             clk       : in  std_logic;
@@ -42,17 +44,14 @@ architecture behavioral of parke_transform is
 
     component shift_register
         generic(
-            WIDTH  : integer;
-            LENGTH : integer
+            DATA_WIDTH : integer;
+            DEPTH      : integer
         );
         port(
-            clk         : in  std_logic;
-            reset       : in  std_logic;
-            ce          : in  std_logic;
-            v_alpha     : in  signed(31 downto 0);
-            v_beta      : in  signed(31 downto 0);
-            v_alpha_del : out signed(31 downto 0);
-            v_beta_del  : out signed(31 downto 0)
+            clk      : in  std_logic;
+            rst      : in  std_logic;
+            data_in  : in  signed(31 downto 0);
+            data_out : out signed(31 downto 0)
         );
     end component;
 
@@ -60,7 +59,9 @@ begin
 
     u_cordic : cordic_sin_cos
         generic map(
-            iterations => 16
+            iterations => 16,
+            WIDTH      => 32,
+            OUT_FP     => 28
         )
         port map(
             clk       => clk,
@@ -71,19 +72,28 @@ begin
             cos_value => cos_val
         );
 
-    u_delay : shift_register
+     u_beta_delay : shift_register
         generic map(
-            WIDTH  => 32,
-            LENGTH => 14
+            DATA_WIDTH => 32,
+            DEPTH      => 14
         )
         port map(
-            clk         => clk,
-            reset       => rst,
-            ce          => ce,
-            v_alpha     => v_alpha,
-            v_beta      => v_beta,
-            v_alpha_del => v_alpha_delayed,
-            v_beta_del  => v_beta_delayed
+            clk      => clk,
+            rst      => rst,
+            data_in  => v_beta,
+            data_out => v_beta_delayed
+        );
+     
+     u_alpha_delay : shift_register
+        generic map(
+            DATA_WIDTH => 32,
+            DEPTH      => 14
+        )
+        port map(
+            clk      => clk,
+            rst      => rst,
+            data_in  => v_alpha,
+            data_out => v_alpha_delayed
         );
 
     process(clk)

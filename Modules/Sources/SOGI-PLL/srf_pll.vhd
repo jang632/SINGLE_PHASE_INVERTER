@@ -4,12 +4,14 @@ use ieee.numeric_std.all;
 
 entity srf_pll is
     port (
-        clk   : in  std_logic;
-        rst   : in  std_logic;
-        ce    : in  std_logic;
-        v_n   : in  signed(15 downto 0);
-        omega : out signed(31 downto 0); -- fixed point 20
-        phase : out signed(31 downto 0)  -- fixed point 28
+        clk    : in  std_logic;
+        rst    : in  std_logic;
+        ce     : in  std_logic;
+        v_n    : in  signed(15 downto 0);
+        v_sogi : out signed(31 downto 0);
+        error  : out signed(31 downto 0);
+        omega  : out signed(31 downto 0); -- fixed point 20
+        phase  : out signed(31 downto 0)  -- fixed point 28
     );
 end srf_pll;
 
@@ -50,19 +52,22 @@ architecture Behavioral of srf_pll is
     constant v_d_error_high       : signed(31 downto 0) := x"001851ec"; -- fixed point 24
     constant stable_samples_count : unsigned(15 downto 0) := to_unsigned(3000, 16);
     
+    constant INIT : signed(66 downto 0) := shift_left(to_signed(314,67),44);
+    constant SATURATION : signed(66 downto 0) := shift_left(to_signed(1000,67),44);
+    
     signal stable_samples : unsigned(15 downto 0) := (others => '0');
 
-    component enable_generator
-        generic (
-            COUNT : integer := 200
-        );
-        port (
-            clk        : in  std_logic;
-            rst        : in  std_logic;
-            ce         : in  std_logic;
-            enable_out : out std_logic
-        );
-    end component;
+--    component enable_generator
+--        generic (
+--            COUNT : integer := 200
+--        );
+--        port (
+--            clk        : in  std_logic;
+--            rst        : in  std_logic;
+--            ce         : in  std_logic;
+--            enable_out : out std_logic
+--        );
+--    end component;
     
     component sogi
         generic (
@@ -92,6 +97,13 @@ architecture Behavioral of srf_pll is
     end component;
 
     component pi_controller is
+        generic (
+            INIT        : signed(66 downto 0);
+            SATURATION  : signed(66 downto 0);
+            FP_DATA_IN  : integer;
+            FP_COEFF    : integer;
+            FP_DATA_OUT : integer
+        );
         port (
             clk      : in  std_logic;
             rst      : in  std_logic;
@@ -113,28 +125,18 @@ architecture Behavioral of srf_pll is
         );
     end component;
 
---    component ema_filter is
---        port (
---            clk      : in  std_logic;
---            reset    : in  std_logic;
---            ce       : in  std_logic;
---            data_in  : in  signed(31 downto 0);
---            data_out : out signed(31 downto 0)
---        );
---    end component;
-
 begin
 
-    u_enable_generator : enable_generator
-        generic map (
-            COUNT => 200
-        )
-        port map (
-            clk        => clk,
-            rst        => rst,
-            ce         => ce,
-            enable_out => enable 
-        );
+--    u_enable_generator : enable_generator
+--        generic map (
+--            COUNT => 200
+--        )
+--        port map (
+--            clk        => clk,
+--            rst        => rst,
+--            ce         => ce,
+--            enable_out => enable 
+--        );
 
     u_sogi : sogi
         generic map (
@@ -143,7 +145,7 @@ begin
         port map (
             clk => clk,
             rst => rst,
-            ce  => enable,
+            ce  => ce,
             v_n => v_n,
             v   => v,
             qv  => qv
@@ -153,7 +155,7 @@ begin
         port map (
             clk     => clk,
             rst     => rst,
-            ce      => enable,
+            ce      => ce,
             v_alpha => v,
             v_beta  => qv,
             theta   => theta_int,
@@ -162,33 +164,34 @@ begin
         );
 
     pi_ctrl_inst : pi_controller
+        generic map(
+            INIT        => INIT,
+            SATURATION  => SATURATION,
+            FP_DATA_IN  => 24,
+            FP_COEFF    => 20,
+            FP_DATA_OUT => 20
+        )
         port map (
             clk      => clk,
             rst      => rst,
-            ce       => enable,
+            ce       => ce,
             b0       => b0,
             b1       => b1,
             data_in  => v_d,
             data_out => omega_int
         );
-
---    u_ema : ema_filter
---        port map (
---            clk      => clk,
---            reset    => rst,
---            ce       => enable,
---            data_in  => v_q,
---            data_out => v_d_ema
---        );
     
     u_integrator : integrator
         port map (
             clk      => clk,
             rst      => rst,
-            ce       => enable,
+            ce       => ce,
             data_in  => omega_int,
             data_out => theta_int
         );
+    
+    error  <= v_d;
+    v_sogi <= v;
     
     process(clk)
     begin
@@ -197,7 +200,7 @@ begin
                 state          <= LOCKING;
                 stable_samples <= (others => '0');
             else
-                if(enable = '1') then
+                if(ce = '1') then
                     case state is
                         when LOCKING => 
                             b0 <= b0_LOCKING;
