@@ -12,6 +12,7 @@ entity current_controller is
         v_ref  : in  signed(31 downto 0); -- fixed point 16
         v_grid : in  signed(15 downto 0); -- fixed point 6
         i_meas : in  signed(15 downto 0); -- fixed point 10
+        i_cap  : in  signed(15 downto 0);
         v_out  : out signed(47 downto 0)  -- fixed point 31
     );
 end current_controller;
@@ -56,6 +57,7 @@ architecture Behavioral of current_controller is
             ce     : in  std_logic;
             i_ref  : in  signed(15 downto 0); -- fixed point 10
             i_meas : in  signed(15 downto 0); -- fixed point 10
+            i_cap  : in  signed(15 downto 0);
             v_grid : in  signed(15 downto 0); -- fixed point 6
             v_out  : out signed(47 downto 0)  -- fixed point 29
         );
@@ -80,11 +82,11 @@ architecture Behavioral of current_controller is
         );
     end component;
     
-    constant SATURATION : signed(66 downto 0) := shift_left(to_signed(25, 67), 44);
-    constant INIT       : signed(66 downto 0) := shift_left(to_signed(5, 67), 44);
+    constant SATURATION : signed(66 downto 0) := shift_left(to_signed(20, 67), 44);
+    constant INIT       : signed(66 downto 0) := shift_left(to_signed(0, 67), 44);
 
-    constant b0 : signed(31 downto 0) := x"02668B1A";
-    constant b1 : signed(31 downto 0) := x"FD99BE4D";
+    constant b0 : signed(31 downto 0) := to_signed(integer(0.50025000 * 2.0**28),32);
+    constant b1 : signed(31 downto 0) := to_signed(integer(-0.49975000 * 2.0**28),32);
 
     signal error_v_dc   : signed(31 downto 0); -- fixed point 16
     signal i_ref        : signed(31 downto 0); -- fixed point 10
@@ -99,8 +101,8 @@ begin
     u_maf_filter_inst : MAF_filter
         generic map (
             DATA_WIDTH    => 16,
-            WINDOW_LENGTH => 497,
-            FIXED_POINT   => 6
+            WINDOW_LENGTH => 500,
+            FIXED_POINT   => 8
         )
         port map (
             clk      => clk,     
@@ -150,6 +152,7 @@ begin
             ce     => ce,
             i_ref  => i_ref_sliced, 
             i_meas => i_meas, 
+            i_cap  => i_cap,
             v_grid => v_grid,
             v_out  => v_out 
         );
@@ -164,7 +167,7 @@ begin
                 v            := (others => '0');
             else
                 if(ce = '1') then
-                    error_v_dc   <= shift_left(resize(maf_v_dc, 32), 10) - v_ref; -- fixed point 16        
+                    error_v_dc   <= shift_left(resize(maf_v_dc, 32), 8) - v_ref; -- fixed point 16        
                     v            := shift_left(i_ref * sin_val, 18);              -- fixed point 42
                     i_ref_sliced <= v(47 downto 32);                              -- fixed point 10
                 end if;

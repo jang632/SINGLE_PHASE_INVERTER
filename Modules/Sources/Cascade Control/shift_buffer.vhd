@@ -19,7 +19,8 @@ use work.pkg.all;
 entity shift_buffer is
 generic(
     LENGTH : integer := 3;
-    WIDTH  : integer := 8
+    WIDTH  : integer := 8;
+    INIT   : signed(WIDTH - 1 downto 0) := (others => '0')
 );
 port(
     clk      : in std_logic;
@@ -40,7 +41,7 @@ begin
     BEGIN 
         if(rising_edge(clk)) then 
             if(rst = '1') then 
-                data_buffer <= (OTHERS => (OTHERS => '0'));
+                data_buffer <= (OTHERS => INIT);
             else
                 if(ce = '1') then
                     data_buffer(0) <= data_in;

@@ -29,7 +29,7 @@ port (
     ce       : in  std_logic;
     b0       : in  signed(31 downto 0);
     b1       : in  signed(31 downto 0);
-    data_in  : in  signed(31 downto 0);
+    data_in  : in  signed(31 downto 0); 
     data_out : out signed(31 downto 0)
 );
 end pi_controller;
@@ -44,10 +44,10 @@ begin
     process(clk)
     begin
         if (rising_edge(clk)) then
-            if (rst = '1') then 
+            if(rst = '1') then 
                 d_data_in <= (others => '0');
             else
-                if (ce = '1') then
+                if(ce = '1') then
                     d_data_in <= data_in;
                 end if;
             end if;
@@ -70,8 +70,8 @@ begin
                                      
                     if(u_temp > SATURATION) then
                         u <= SATURATION;
-                    elsif(u_temp < -SATURATION) then
-                        u <= -SATURATION;
+                    elsif(u_temp < 0) then
+                        u <= (others => '0');
                     else
                         u  <= u_temp;
                     end if;                   

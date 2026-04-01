@@ -9,10 +9,11 @@ entity cascade_control is
         clk    : in std_logic;
         rst    : in std_logic;
         ce     : in std_logic;
-        v_dc   : in  signed(15 downto 0); -- fixed point 6
+        v_dc   : in  signed(15 downto 0); -- fixed point 9
         v_ref  : in  signed(31 downto 0); -- fixed point 16
-        v_grid : in  signed(15 downto 0); -- fixed point 6
+        v_grid : in  signed(15 downto 0); -- fixed point 9
         i_meas : in  signed(15 downto 0); -- fixed point 10
+        i_cap  : in  signed(15 downto 0);
         v_out  : out signed(47 downto 0)
     );
         
@@ -39,10 +40,11 @@ component current_controller is
         rst    : in  std_logic;
         ce     : in  std_logic;
         theta  : in  signed(31 downto 0); -- fixed point 28
-        v_dc   : in  signed(15 downto 0); -- fixed point 6
+        v_dc   : in  signed(15 downto 0); -- fixed point 9
         v_ref  : in  signed(31 downto 0); -- fixed point 16
-        v_grid : in  signed(15 downto 0); -- fixed point 6
+        v_grid : in  signed(15 downto 0); -- fixed point 9
         i_meas : in  signed(15 downto 0); -- fixed point 10
+        i_cap  : in  signed(15 downto 0);
         v_out  : out signed(47 downto 0)  -- fixed point 31
     );
 end component;
@@ -59,7 +61,12 @@ signal ce_pll     : std_logic;
 signal timer_count : unsigned(15 downto 0);
 signal timer_tick  : std_logic;
 
+signal rst_current  : std_logic;
+signal i_rst_current  : std_logic;
+
+
 signal count : unsigned(15 downto 0);
+signal uvlo_count : unsigned(15 downto 0);
 
 constant PHASE_TRIP  : signed(31 downto 0) := x"000a3d71";
 constant PHASE_RESET : signed(31 downto 0) := x"000f5c29";
@@ -69,13 +76,14 @@ begin
 u_current_controller : current_controller
     port map (
         clk    => clk,
-        rst    => rst,
+        rst    => rst_current,
         ce     => ce_current,
         theta  => phase,
         v_dc   => v_dc,
         v_ref  => v_ref,
         v_grid => v_grid,
         i_meas => i_meas,
+        i_cap  => i_cap,
         v_out  => v_out
     );
 
@@ -109,13 +117,17 @@ u_srf_pll : srf_pll
         end if;
     end process;
     
+    rst_current <= rst or i_rst_current;
+    
     process(clk)
     begin
         if(rst = '1') then
             state <= LOCKING;
-            ce_pll     <= '0';    
-            ce_current <= '0';
-            count      <= (others => '0');
+            ce_pll      <= '0';    
+            ce_current  <= '0';
+            count       <= (others => '0');
+            uvlo_count  <= (others => '0');
+            i_rst_current <= '1';
         else
             if(ce = '1') then
                 case(state) is
@@ -145,9 +157,21 @@ u_srf_pll : srf_pll
                          else
                             count <= (others => '0');
                          end if; 
-                
+                         
+                         if(v_dc < x"2900") then                       
+                            ce_current <= '0';
+                            i_rst_current <= '1';
+                            uvlo_count <= (others => '0');
+                         elsif(v_dc > x"2c00") then
+                            if(uvlo_count > to_unsigned(40, 16)) then 
+                                uvlo_count <= (others => '0');
+                                ce_current <= '1';
+                                i_rst_current <= '0';
+                            elsif(timer_tick = '1') then
+                                uvlo_count <= uvlo_count + 1;
+                            end if;
+                         end if;               
                         ce_pll <= '1';
-                        ce_current <= '1';         
                 end case;
            end if;
       end if;
