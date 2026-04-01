@@ -45,7 +45,7 @@ architecture Behavioral of tb_cascade_control is
     constant L2 : real := 1.5 / 10000.0; 
     constant R2 : real := 0.1;           
     constant Cf : real := 10.0 / 1000000.0; 
-    constant Rd : real := 2.0;          
+    constant Rd : real := 0.5;          
     
 begin
 
@@ -98,15 +98,19 @@ begin
         
         variable P_out      : real := 0.0;
         variable I_cap      : real := 0.0;
-        variable V_dc_meas  : real := 380.0; 
+        variable V_dc_meas  : real := 48.0; 
         variable P_in       : real := 0.0;
-        variable C_dc       : real := 3.0 / 1000.0;
+        variable C_dc       : real := 6.0 / 1000.0;
         
         variable theta_var      : real := 0.0;
         variable TWO_PI         : real := 2.0 * math_pi;
         variable THETA_STEP     : real := 2.0 * math_pi * 50.0 * Ts;
         
         variable pwm_enabled    : boolean := false;
+        
+        variable start_drop : integer := 40000;
+        variable drop_time  : integer := 1000; 
+        variable end_drop   : integer := start_drop + drop_time;
         
     begin   
         rst <= '1';
@@ -117,20 +121,28 @@ begin
         rst <= '0';
         ce  <= '1';
         
-        v_ref <= to_signed(integer(400.0 * 2.0**16), 32); 
+        v_ref <= to_signed(integer(48.0 * 2.0**16), 32); 
         
         while n < 240000 loop
         
             wait until rising_edge(clk) and ce = '1';
-            
-            if n < 60000 then
-                P_in :=10.0;
+          
+            if n < 40000 then
+                P_in := 300.0; 
+            elsif n < 60000 then
+                P_in := 120.0; 
+            elsif n < 80000 then
+                P_in := 300.0; 
             elsif n < 100000 then
-                P_in := 1500.0;
-            elsif n < 140000 then
-                P_in := 3000.0;
+                P_in := 0.0;   
+            elsif n < 160000 then
+                P_in := 300.0 * real(n - 100000) / 60000.0;
             else
-                P_in := 500.0;
+                P_in := 300.0; 
+            end if;
+
+            if V_dc_meas > 55.0 then
+                P_in := 0.0; 
             end if;
 
             theta_var := theta_var + THETA_STEP;
@@ -138,23 +150,26 @@ begin
                 theta_var := theta_var - TWO_PI;
             end if;
                       
-            v_grid_real := 325.0 * (sin(theta_var) + 0.1*sin(3*theta_var));
-            v_grid      <= to_signed(integer(v_grid_real * 2.0**6), 16);
+            v_grid_real := 39.0 * (sin(theta_var) + 0.1*sin(3.0*theta_var));
+            v_grid      <= to_signed(integer(v_grid_real * 2.0**8), 16);
             
             i_meas <= to_signed(integer(I_L2_k * 2.0**10), 16);
             
-            v_dc <= to_signed(integer(V_dc_meas * 2.0**6), 16);
+            v_dc <= to_signed(integer(V_dc_meas * 2.0**8), 16);
             
             u_inv_real := to_real_scaled(v_out, 2.0**29);
             
             if u_inv_real /= 0.0 then
                 pwm_enabled := true;
+            else
+                pwm_enabled := false; 
             end if;
 
             if not pwm_enabled then
                 I_L1_k := 0.0;
                 I_L2_k := 0.0;
                 V_cf_k := v_grid_real; 
+                P_out  := 0.0;
                 
             else
                 if u_inv_real > V_dc_meas then
@@ -163,16 +178,19 @@ begin
                     u_inv_real := -V_dc_meas;
                 end if;
 
-                V_C_branch := V_cf_k + Rd * (I_L1_k - I_L2_k);
-                    
-                I_L1_k := I_L1_k + (Ts) * (u_inv_real - I_L1_k * R1 - V_C_branch) / L1;
-                I_L2_k := I_L2_k + (Ts) * (V_C_branch - I_L2_k * R2 - v_grid_real) / L2;
-                V_cf_k := V_cf_k + (Ts) * (I_L1_k - I_L2_k) / Cf;
+               for sub in 1 to 10 loop
+                    V_C_branch := V_cf_k + Rd * (I_L1_k - I_L2_k);
+                        
+                    I_L1_k := I_L1_k + (Ts / 10.0) * (u_inv_real - I_L1_k * R1 - V_C_branch) / L1;
+                    I_L2_k := I_L2_k + (Ts / 10.0) * (V_C_branch - I_L2_k * R2 - v_grid_real) / L2;
+                    V_cf_k := V_cf_k + (Ts / 10.0) * (I_L1_k - I_L2_k) / Cf;
+                end loop;
             
-                P_out      := v_grid_real * I_L2_k;
-                I_cap      := (P_in - P_out) / V_dc_meas;
-                V_dc_meas  := V_dc_meas + (I_cap / C_dc) * Ts;
+                P_out := u_inv_real * I_L1_k;
             end if;
+            
+            I_cap      := (P_in - P_out) / V_dc_meas;
+            V_dc_meas  := V_dc_meas + (I_cap / C_dc) * Ts;
             
             n := n + 1;
             
