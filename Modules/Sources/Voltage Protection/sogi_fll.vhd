@@ -81,7 +81,7 @@ architecture Behavioral of sogi_fll is
     signal omega_raw       : signed(31 downto 0);
     signal omega_est_shift : signed(63 downto 0);
 
-    constant K        : signed(7 downto 0)  := x"04"; -- fixed point 6
+    constant K        : signed(7 downto 0)  := x"02"; -- fixed point 6
     constant W0       : signed(63 downto 0) := x"4e8a316755129c00"; -- fixed point 54
     constant W0_EMA   : signed(31 downto 0) := x"274518b4"; -- fixed point 21
 

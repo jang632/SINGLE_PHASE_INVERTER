@@ -4,22 +4,16 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity voltage_protection is
     port (
-        clk      : in  std_logic;
-        rst      : in  std_logic;
-        ce       : in  std_logic;
-        b0_alpha : in  signed(31 downto 0); -- fixed point 28
-        b2_alpha : in  signed(31 downto 0); -- fixed point 28
-        b0_beta  : in  signed(31 downto 0); -- fixed point 28
-        b1_beta  : in  signed(31 downto 0); -- fixed point 28
-        b2_beta  : in  signed(31 downto 0); -- fixed point 28
-        a1       : in  signed(31 downto 0); -- fixed point 28
-        a2       : in  signed(31 downto 0); -- fixed point 28
-        v_n      : in  signed(15 downto 0); -- fixed point 6
-        omega    : out signed(31 downto 0); -- fixed point 21
-        ov1      : out std_logic;
-        ov2      : out std_logic;
-        uv1      : out std_logic;
-        uv2      : out std_logic
+        clk       : in  std_logic;
+        rst       : in  std_logic;
+        ce        : in  std_logic;
+        v_n       : in  signed(15 downto 0); -- fixed point 6
+        omega_in  : in  signed(31 downto 0); -- fixed point 21
+        omega_out : out signed(31 downto 0); -- fixed point 21
+        ov1       : out std_logic;
+        ov2       : out std_logic;
+        uv1       : out std_logic;
+        uv2       : out std_logic
     );
 end voltage_protection;
 
@@ -39,20 +33,14 @@ architecture Behavioral of voltage_protection is
 
     component sogi_fll is
         port (
-            clk      : in  std_logic;
-            rst      : in  std_logic;
-            ce       : in  std_logic;
-            b0_alpha : in  signed(31 downto 0);
-            b2_alpha : in  signed(31 downto 0);
-            b0_beta  : in  signed(31 downto 0);
-            b1_beta  : in  signed(31 downto 0);
-            b2_beta  : in  signed(31 downto 0);
-            a1       : in  signed(31 downto 0);
-            a2       : in  signed(31 downto 0);
-            v_n      : in  signed(15 downto 0);
-            omega    : out signed(31 downto 0);
-            out_v    : out signed(31 downto 0);
-            out_qv   : out signed(31 downto 0)
+            clk       : in  std_logic;
+            rst       : in  std_logic;
+            ce        : in  std_logic;
+            v_n       : in  signed(15 downto 0);
+            omega_in  : in signed(31 downto 0);
+            omega_out : out signed(31 downto 0);
+            out_v     : out signed(31 downto 0);
+            out_qv    : out signed(31 downto 0)
         );
     end component;
 
@@ -138,20 +126,14 @@ begin
 
     u_sogi_fll : sogi_fll
         port map (
-            clk      => clk,
-            rst      => rst,
-            ce       => enable,
-            b0_alpha => b0_alpha,
-            b2_alpha => b2_alpha,
-            b0_beta  => b0_beta,
-            b1_beta  => b1_beta,
-            b2_beta  => b2_beta,
-            a1       => a1,
-            a2       => a2,
-            v_n      => v_n,
-            omega    => omega,
-            out_v    => v,
-            out_qv   => qv
+            clk       => clk,
+            rst       => rst,
+            ce        => enable,
+            v_n       => v_n,
+            omega_in  => omega_in,
+            omega_out => omega_out,
+            out_v     => v,
+            out_qv    => qv
         );
 
     u_cordic_mag : cordic_mag
