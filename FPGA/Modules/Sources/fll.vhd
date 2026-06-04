@@ -5,13 +5,13 @@ use ieee.math_real.all;
 
 entity fll is
   port (
-    clk     : in  std_logic;
-    rst     : in  std_logic;
-    ce      : in  std_logic;
-    v       : in  signed(31 downto 0); -- fixed point 28
-    qv      : in  signed(31 downto 0); -- fixed point 28
-    v_n     : in  signed(15 downto 0); -- fixed point 6
-    omega   : out signed(31 downto 0)  -- fixed point 21
+    clk   : in  std_logic;
+    rst   : in  std_logic;
+    ce    : in  std_logic;
+    v     : in  signed(31 downto 0); -- fixed point 28
+    qv    : in  signed(31 downto 0); -- fixed point 28
+    v_n   : in  signed(15 downto 0); -- fixed point 6
+    omega : out signed(31 downto 0)  -- fixed point 21
   );
 end entity fll;
 
@@ -23,24 +23,37 @@ architecture Behavioral of fll is
   signal omega_raw       : signed(31 downto 0);
   signal omega_est_shift : signed(63 downto 0);
 
-  constant K             : signed(7 downto 0)  := x"02";               -- fixed point 6
-  constant W0            : signed(63 downto 0) := x"4e8a316755129c00"; -- fixed point 54
-  constant W0_EMA        : signed(31 downto 0) := x"274518b4";         -- fixed point 21
+  constant K      : signed(7 downto 0)  := x"02";                -- fixed point 6
+  constant W0     : signed(63 downto 0) := x"4e8a316755129c00";  -- fixed point 54
+  constant W0_EMA : signed(31 downto 0) := x"274518b4";          -- fixed point 21
 
 begin
 
-  u_uni_shift_register : entity work.uni_shift_register
+  u_shift_register : entity work.shift_register
     generic map (
-      WIDTH  => 16,
-      LENGTH => 1
+      DATA_WIDTH => 16,
+      DEPTH      => 1
     )
     port map (
       clk      => clk,
-      reset    => rst,
+      rst      => rst,
       ce       => ce,
       data_in  => v_n,
       data_out => d_v_n
     );
+
+--  u_uni_shift_register : entity work.uni_shift_register
+--    generic map (
+--      WIDTH  => 16,
+--      LENGTH => 1
+--    )
+--    port map (
+--      clk      => clk,
+--      reset    => rst,
+--      ce       => ce,
+--      data_in  => v_n,
+--      data_out => d_v_n
+--    );
 
   u_ema_filter : entity work.ema_filter
     generic map (

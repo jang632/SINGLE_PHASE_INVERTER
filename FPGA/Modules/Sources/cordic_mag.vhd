@@ -1,10 +1,11 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use ieee.math_real.all;
 
 entity cordic_mag is
   generic (
-    iterations : integer := 16
+    ITERATIONS : integer := 16
   );
   port (
     clk       : in  std_logic;
@@ -18,20 +19,21 @@ end entity cordic_mag;
 
 architecture Behavioral of cordic_mag is
 
-  type pipelined_io is record
-    pip_y : signed(33 downto 0);
-    pip_x : signed(33 downto 0);
-  end record pipelined_io;
+  type cordic_data_t is record
+    y : signed(33 downto 0);
+    x : signed(33 downto 0);
+  end record cordic_data_t;
 
-  type pipe_stages is array (0 to iterations - 1) of pipelined_io;
-  signal pipeline : pipe_stages;
+  type cordic_pipe_t is array (0 to ITERATIONS - 1) of cordic_data_t;
+  signal pipeline : cordic_pipe_t;
 
   signal x_reg : signed(33 downto 0);
   signal y_reg : signed(33 downto 0);
 
   signal mult_reg : signed(66 downto 0);
-
-  constant CORDIC_CONST : signed(31 downto 0) := x"09B74EDB";
+  
+  constant FIXED_POINT_REAL : real := 2.0**28;
+  constant CORDIC_CONST     : signed(31 downto 0) := to_signed(integer(0.60725293500 * FIXED_POINT_REAL), 32);
 
 begin
 
@@ -52,18 +54,18 @@ begin
   begin
     if rising_edge(clk) then
       if reset = '1' then
-        pipeline <= (others => (pip_y => (others => '0'), pip_x => (others => '0')));
+        pipeline <= (others => (y => (others => '0'), x => (others => '0')));
       elsif ce = '1' then
-        pipeline(0).pip_y <= y_reg;
-        pipeline(0).pip_x <= x_reg;
+        pipeline(0).y <= y_reg;
+        pipeline(0).x <= x_reg;
         
-        for i in 0 to iterations - 2 loop
-          if pipeline(i).pip_y < 0 then
-            pipeline(i + 1).pip_y <= pipeline(i).pip_y + shift_right(pipeline(i).pip_x, i);
-            pipeline(i + 1).pip_x <= pipeline(i).pip_x - shift_right(pipeline(i).pip_y, i);
+        for i in 0 to ITERATIONS - 2 loop
+          if pipeline(i).y < 0 then
+            pipeline(i + 1).y <= pipeline(i).y + shift_right(pipeline(i).x, i);
+            pipeline(i + 1).x <= pipeline(i).x - shift_right(pipeline(i).y, i);
           else
-            pipeline(i + 1).pip_y <= pipeline(i).pip_y - shift_right(pipeline(i).pip_x, i);
-            pipeline(i + 1).pip_x <= pipeline(i).pip_x + shift_right(pipeline(i).pip_y, i);
+            pipeline(i + 1).y <= pipeline(i).y - shift_right(pipeline(i).x, i);
+            pipeline(i + 1).x <= pipeline(i).x + shift_right(pipeline(i).y, i);
           end if;
         end loop;
       end if;
@@ -78,7 +80,7 @@ begin
         mult_reg  <= (others => '0');
         magnitude <= (others => '0');
       elsif ce = '1' then
-        mult_reg       <= resize(pipeline(iterations - 1).pip_x, 35) * CORDIC_CONST;
+        mult_reg       <= resize(pipeline(ITERATIONS - 1).x, 35) * CORDIC_CONST;
         mult_reg_shift := shift_left(mult_reg, 2);
         magnitude      <= mult_reg_shift(63 downto 32);
       end if;

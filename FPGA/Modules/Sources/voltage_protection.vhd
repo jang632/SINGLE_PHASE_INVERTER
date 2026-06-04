@@ -4,15 +4,15 @@ use ieee.numeric_std.all;
 
 entity voltage_protection is
   port (
-    clk  : in  std_logic;
-    rst  : in  std_logic;
-    ce   : in  std_logic;
-    v    : in  signed(31 downto 0); -- fixed point 21
-    qv   : in  signed(31 downto 0); -- fixed point 21
-    ov1  : out std_logic;
-    ov2  : out std_logic;
-    uv1  : out std_logic;
-    uv2  : out std_logic
+    clk : in  std_logic;
+    rst : in  std_logic;
+    ce  : in  std_logic;
+    v   : in  signed(31 downto 0); -- fixed point 21
+    qv  : in  signed(31 downto 0); -- fixed point 21
+    ov1 : out std_logic;
+    ov2 : out std_logic;
+    uv1 : out std_logic;
+    uv2 : out std_logic
   );
 end entity voltage_protection;
 
@@ -20,16 +20,16 @@ architecture Behavioral of voltage_protection is
 
   signal enable : std_logic;
 
-  signal magnitude     : signed(31 downto 0);          -- fixed point 17
-  signal magnitude_ema : signed(31 downto 0);          -- fixed point 17
+  signal magnitude     : signed(31 downto 0);          -- fixed point 19
+  signal magnitude_ema : signed(31 downto 0);          -- fixed point 19
 
-  type machine is (LOCKING, RUNNING);
-  signal state : machine;
+  type machine_t is (LOCKING, RUNNING);
+  signal state : machine_t;
 
   signal ov1_flag : std_logic;
   signal ov2_flag : std_logic;
-  signal uv2_flag : std_logic;
   signal uv1_flag : std_logic;
+  signal uv2_flag : std_logic;
 
   signal count : unsigned(15 downto 0);
 
@@ -41,35 +41,35 @@ architecture Behavioral of voltage_protection is
   signal ov2_count : unsigned(15 downto 0);
   signal uv2_count : unsigned(15 downto 0);
 
-  constant FIXED_POINT : integer := 2**17;
+  constant FIXED_POINT : integer := 2**19;
 
-  constant OV1_TRIP  : signed(31 downto 0) := to_signed(172 * FIXED_POINT, 32);
-  constant OV1_RESET : signed(31 downto 0) := to_signed(168 * FIXED_POINT, 32);
+  constant OV1_TRIP  : signed(31 downto 0) := to_signed(43 * FIXED_POINT, 32);
+  constant OV1_RESET : signed(31 downto 0) := to_signed(42 * FIXED_POINT, 32);
 
-  constant UV1_TRIP  : signed(31 downto 0) := to_signed(132 * FIXED_POINT, 32);
-  constant UV1_RESET : signed(31 downto 0) := to_signed(137 * FIXED_POINT, 32);
+  constant UV1_TRIP  : signed(31 downto 0) := to_signed(33 * FIXED_POINT, 32);
+  constant UV1_RESET : signed(31 downto 0) := to_signed(34 * FIXED_POINT, 32);
 
-  constant OV2_TRIP  : signed(31 downto 0) := to_signed(179 * FIXED_POINT, 32);
-  constant OV2_RESET : signed(31 downto 0) := to_signed(176 * FIXED_POINT, 32);
+  constant OV2_TRIP  : signed(31 downto 0) := to_signed(45 * FIXED_POINT, 32);
+  constant OV2_RESET : signed(31 downto 0) := to_signed(44 * FIXED_POINT, 32);
 
-  constant UV2_TRIP  : signed(31 downto 0) := to_signed( 70 * FIXED_POINT, 32);
-  constant UV2_RESET : signed(31 downto 0) := to_signed( 78 * FIXED_POINT, 32);
+  constant UV2_TRIP  : signed(31 downto 0) := to_signed(31 * FIXED_POINT, 32);
+  constant UV2_RESET : signed(31 downto 0) := to_signed(32 * FIXED_POINT, 32);
 
-  constant MAG_EMA : signed(31 downto 0) := x"028a0000"; -- fixed point 17
+  constant MAG_EMA : signed(31 downto 0) := to_signed(39 * FIXED_POINT, 32);
 
 begin
 
   u_cordic_mag : entity work.cordic_mag
     generic map (
-      iterations => 16
+      ITERATIONS => 16
     )
     port map (
-      clk        => clk,
-      reset      => rst,
-      ce         => ce,
-      x          => v,
-      y          => qv,
-      magnitude  => magnitude_ema
+      clk       => clk,
+      reset     => rst,
+      ce        => ce,
+      x         => v,
+      y         => qv,
+      magnitude => magnitude_ema
     );
     
   u_ema_filter : entity work.ema_filter
@@ -115,10 +115,10 @@ begin
         ov1_flag <= '0';
         ov2_flag <= '0';
         
-        ov2_count <= (others => '0');
         ov1_count <= (others => '0');
-        uv2_count <= (others => '0');
+        ov2_count <= (others => '0');
         uv1_count <= (others => '0');
+        uv2_count <= (others => '0');
       elsif ce = '1' then 
         case state is
           when LOCKING =>
@@ -189,7 +189,7 @@ begin
       end if;
     end if;
   end process;
-       
+        
   ov1 <= '0' when ov2_flag = '1' else ov1_flag;
   uv1 <= '0' when uv2_flag = '1' else uv1_flag;        
   ov2 <= ov2_flag;      

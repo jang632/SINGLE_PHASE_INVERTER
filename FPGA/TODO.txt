@@ -1,0 +1,7 @@
+TODO: Zynq PL-PS & ADC Integration
+
+1. PS Communication (AXI)
+- Implement AXI4-Stream Slave interface
+
+2. Measurement Interface (ADC SPI)
+- Implement SPI Master controller

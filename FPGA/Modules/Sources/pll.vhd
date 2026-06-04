@@ -7,9 +7,9 @@ entity pll is
     clk   : in  std_logic;
     rst   : in  std_logic;
     ce    : in  std_logic;
-    v     : in  signed(31 downto 0);
-    qv    : in  signed(31 downto 0);
-    error : out signed(31 downto 0);
+    v     : in  signed(31 downto 0); -- fixed point 28
+    qv    : in  signed(31 downto 0); -- fixed point 28
+    error : out signed(31 downto 0); -- fixed point 24
     omega : out signed(31 downto 0); -- fixed point 20
     phase : out signed(31 downto 0)  -- fixed point 28
   );
@@ -34,18 +34,22 @@ architecture Behavioral of pll is
   signal theta_saturated : signed(31 downto 0);
   signal internal_omega  : signed(31 downto 0);
   
-  constant Ts : signed(31 downto 0) := x"0000a7c6"; -- fixed point 31
-
-  signal b0 : signed(31 downto 0) := x"210E5DC9"; -- fixed point 20
-  signal b1 : signed(31 downto 0) := x"DF152A0B"; -- fixed point 20
+  constant FIXED_POINT_31 : integer := 2**31;
+  constant FIXED_POINT_20 : integer := 2**20;
+  constant FIXED_POINT_24 : integer := 2**24;
   
-  constant b0_LOCKING : signed(31 downto 0) := x"1BD46771"; -- fixed point 20
-  constant b1_LOCKING : signed(31 downto 0) := x"E44B2DBD"; -- fixed point 20
-  constant b0_STABLE  : signed(31 downto 0) := x"0A9BC1DD"; -- fixed point 20
-  constant b1_STABLE  : signed(31 downto 0) := x"F56715CE"; -- fixed point 20
+  constant Ts : signed(31 downto 0) := to_signed(integer(0.00002 * FIXED_POINT_31),32); -- fixed point 31
 
-  constant vd_error_low   : signed(31 downto 0) := x"0010a3d7"; -- fixed point 24
-  constant vd_error_high  : signed(31 downto 0) := x"001851ec"; -- fixed point 24
+  signal b0 : signed(31 downto 0) := to_signed(integer(528.89789676666 * FIXED_POINT_20),32); -- fixed point 20
+  signal b1 : signed(31 downto 0) := to_signed(integer(-526.67723560333 * FIXED_POINT_20),32); -- fixed point 20
+  
+  constant b0_LOCKING : signed(31 downto 0) := to_signed(integer(445.275254249572 * FIXED_POINT_20),32); -- fixed point 20
+  constant b1_LOCKING : signed(31 downto 0) := to_signed(integer(-443.30133342742 * FIXED_POINT_20),32); -- fixed point 20
+  constant b0_STABLE  : signed(31 downto 0) := to_signed(integer(169.734829902648 * FIXED_POINT_20),32); -- fixed point 20
+  constant b1_STABLE  : signed(31 downto 0) := to_signed(integer(-169.557176589965 * FIXED_POINT_20),32); -- fixed point 20
+
+  constant vd_error_low   : signed(31 downto 0) := to_signed(integer(0.064999997615814 * FIXED_POINT_24),32); -- fixed point 24
+  constant vd_error_high  : signed(31 downto 0) := to_signed(integer(0.095000028610229 * FIXED_POINT_24),32); -- fixed point 24
   constant lock_threshold : unsigned(15 downto 0) := to_unsigned(3000, 16);
   
   constant INIT       : signed(66 downto 0) := shift_left(to_signed(314, 67), 44);
